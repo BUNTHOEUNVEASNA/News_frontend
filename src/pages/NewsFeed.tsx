@@ -36,41 +36,43 @@ const NewsFeed: React.FC = () => {
   // FETCH ARTICLES
   // -------------------------
   const fetchArticles = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const params = new URLSearchParams();
-      params.append("page", String(filters.page));
-      params.append("page_size", String(filters.page_size));
-      if (filters.search) params.append("search", filters.search);
-      if (filters.source) params.append("source", String(filters.source));
-      if (filters.date_from) params.append("date_from", filters.date_from);
-      if (filters.date_to) params.append("date_to", filters.date_to);
+    const params = new URLSearchParams();
+    params.append("page", String(filters.page));
+    params.append("page_size", String(filters.page_size));
+    if (filters.search) params.append("search", filters.search);
+    if (filters.source) params.append("source", String(filters.source));
+    if (filters.date_from) params.append("date_from", filters.date_from);
+    if (filters.date_to) params.append("date_to", filters.date_to);
 
-      const url = `${API_BASE_URL}/api/articles/?${params.toString()}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access")}`,
-        },
-      });
-      const data: PaginatedResponse<Article> = await res.json();
+    const url = `${API_BASE_URL}/api/articles/?${params.toString()}`;
 
-      setArticles(data.results || []);
-      const total = Math.ceil(data.count / (filters.page_size ?? 12));
-      setPagination({
-        count: data.count,
-        next: data.next,
-        previous: data.previous,
-        currentPage: filters.page ?? 1,
-        totalPages: total,
-      });
-      setLoading(false);
-    } catch (err) {
-      console.error("Failed to load articles:", err);
-      setError("Failed to load articles");
-      setLoading(false);
-    }
-  };
+    // ✅ Add token only if user is logged in
+    const token = localStorage.getItem("access");
+    const headers: any = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(url, { headers });
+    const data: PaginatedResponse<Article> = await res.json();
+
+    setArticles(data.results || []);
+    const total = Math.ceil(data.count / (filters.page_size ?? 12));
+    setPagination({
+      count: data.count,
+      next: data.next,
+      previous: data.previous,
+      currentPage: filters.page ?? 1,
+      totalPages: total,
+    });
+    setLoading(false);
+  } catch (err) {
+    console.error("Failed to load articles:", err);
+    setError("Failed to load articles");
+    setLoading(false);
+  }
+};
 
   // -------------------------
   // FETCH SOURCES
@@ -92,18 +94,22 @@ const NewsFeed: React.FC = () => {
   // -------------------------
   // RECORD ARTICLE CLICK AND NAVIGATE
   // -------------------------
-  const handleArticleClick = async (article: Article) => {
-    try {
-      const token = localStorage.getItem("access");
-      if (token) {
-        await fetch(`${API_BASE_URL}/articles/${article.id}/click/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
+  // -------------------------
+// RECORD ARTICLE CLICK AND NAVIGATE
+// -------------------------
+const handleArticleClick = async (article: Article) => {
+  try {
+    const token = localStorage.getItem("access");
+
+    // Only record click if logged in
+    if (token) {
+      await fetch(`${API_BASE_URL}/articles/${article.id}/click/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       // Optimistically update view_count
       setArticles((prev) =>
@@ -113,13 +119,16 @@ const NewsFeed: React.FC = () => {
             : a
         )
       );
-
-      // Navigate to ArticleDetails page
-      navigate(`/article/${article.id}`);
-    } catch (err) {
-      console.error("Failed to record article click:", err);
     }
-  };
+
+    // Navigate to ArticleDetails page for everyone
+    navigate(`/article/${article.id}`);
+  } catch (err) {
+    console.error("Failed to record article click:", err);
+    navigate(`/article/${article.id}`); // still navigate
+  }
+};
+
 
   // -------------------------
   // REFETCH WHEN FILTERS CHANGE
